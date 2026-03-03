@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutGrid, Server, Briefcase, FileText, LogOut, Search, Bell, Settings, Shield } from "lucide-react";
+import { LayoutGrid, Server, Briefcase, FileText, LogOut, Search, Bell, Settings, Shield, Users } from "lucide-react";
 import { motion } from "motion/react";
 import { api } from "@/src/lib/api";
 import { Login } from "@/src/components/Login";
@@ -47,6 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
     { id: "servers", label: "Servers", icon: Server, path: "/servers" },
     { id: "projects", label: "Projects", icon: Briefcase, path: "/projects" },
+    { id: "users", label: "Users", icon: Users, path: "/users" },
     { id: "logs", label: "Logs", icon: FileText, path: "/logs" },
   ];
 
