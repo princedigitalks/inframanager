@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../src/index.css";
+import AppLayout from "@/src/AppLayout";
 
 export const metadata: Metadata = {
   title: "InfraManager Pro",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <AppLayout>{children}</AppLayout>
+      </body>
     </html>
   );
 }
