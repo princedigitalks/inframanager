@@ -1,47 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { LayoutGrid, Server, Briefcase, FileText, LogOut, Search, Bell, Settings, Shield, Users } from "lucide-react";
 import { motion } from "motion/react";
-import { api } from "@/src/lib/api";
-import { Login } from "@/src/components/Login";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { usePathname, useRouter } from "next/navigation";
+import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
+import { logout } from "@/src/store/authSlice";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      api.auth.me()
-        .then(setUser)
-        .catch(() => localStorage.removeItem("token"))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F8F9FB]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2D31A6]"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Login onLoginSuccess={(u: any) => setUser(u)} />;
-  }
+  const handleLogout = () => {
+    dispatch(logout());
+    router.push("/login");
+  };
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/dashboard" },
@@ -97,7 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           <button
-            onClick={() => { localStorage.removeItem("token"); setUser(null); }}
+            onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 mt-4 text-[#64748B] hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
           >
             <LogOut size={20} />
@@ -134,12 +114,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-[#1A1C1E]">{user.name}</p>
-                <p className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">{user.role}</p>
+                <p className="text-sm font-bold text-[#1A1C1E]">{user?.name || "User"}</p>
+                <p className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">{user?.role || "Staff"}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 border-2 border-white shadow-sm overflow-hidden">
                 <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`}
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />

@@ -91,7 +91,10 @@ export default function App({ children }: { children: React.ReactNode }) {
         <div className="p-4 mt-auto">
           <div className="bg-[#F8F9FB] rounded-2xl p-4 border border-[#E2E8F0]">
             <p className="text-xs font-semibold text-[#94A3B8] uppercase tracking-wider mb-3">Support</p>
-            <button className="w-full bg-[#2D31A6] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#1E217A] transition-colors shadow-md shadow-indigo-100">
+            <button 
+              onClick={() => window.open('https://wa.me/918980743009', '_blank')}
+              className="w-full bg-[#2D31A6] text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[#1E217A] transition-colors shadow-md shadow-indigo-100"
+            >
               Contact Admin
             </button>
           </div>

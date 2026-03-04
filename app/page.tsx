@@ -7,7 +7,10 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/dashboard");
+    const currentPath = window.location.pathname;
+    if (currentPath === "/") {
+      router.replace("/dashboard");
+    }
   }, [router]);
 
   return (

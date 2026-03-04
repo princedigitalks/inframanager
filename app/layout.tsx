@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "../src/index.css";
-import AppLayout from "@/src/AppLayout";
+import ReduxProvider from "@/src/store/ReduxProvider";
+import AuthGuard from "@/src/AuthGuard";
+import ConditionalLayout from "@/src/ConditionalLayout";
 
 export const metadata: Metadata = {
   title: "InfraManager Pro",
@@ -15,7 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <AppLayout>{children}</AppLayout>
+        <ReduxProvider>
+          <AuthGuard>
+            <ConditionalLayout>{children}</ConditionalLayout>
+          </AuthGuard>
+        </ReduxProvider>
       </body>
     </html>
   );

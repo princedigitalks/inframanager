@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../lib/api";
+import { dashboardService } from "../services/dashboardService";
 import { Server, Briefcase, Activity, Globe, TrendingUp, TrendingDown, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
@@ -10,8 +10,9 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.stats.get()
-      .then(setStats)
+    dashboardService.getStats()
+      .then(res => setStats(res.data))
+      .catch(err => console.error('Failed to fetch stats:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -31,9 +32,6 @@ export function Dashboard() {
             <Clock size={16} />
             Last 30 Days
           </div>
-          <button className="bg-[#2D31A6] text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-indigo-100 hover:bg-[#1E217A] transition-all">
-            + New Project
-          </button>
         </div>
       </div>
 
@@ -41,9 +39,9 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: "Total Servers", value: stats.totalServers, icon: Server, color: "bg-blue-50 text-blue-600", trend: "+12%", trendUp: true },
+          { label: "Active Servers", value: stats.activeServers, icon: Server, color: "bg-emerald-50 text-emerald-600", trend: "Online", trendUp: true },
           { label: "Total Projects", value: stats.totalProjects, icon: Briefcase, color: "bg-purple-50 text-purple-600", trend: "+8%", trendUp: true },
-          { label: "Avg CPU Load", value: "64%", icon: Activity, color: "bg-orange-50 text-orange-600", trend: "-4%", trendUp: false },
-          { label: "System Uptime", value: "99.9%", icon: Globe, color: "bg-emerald-50 text-emerald-600", trend: "Online", trendUp: true },
+          { label: "Running Projects", value: stats.runningProjects, icon: Activity, color: "bg-orange-50 text-orange-600", trend: "Active", trendUp: true },
         ].map((stat, i) => (
           <motion.div 
             key={stat.label}
@@ -80,7 +78,7 @@ export function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={stats.techStats}
+                  data={stats.projectsByTech || []}
                   cx="50%"
                   cy="50%"
                   innerRadius={80}
@@ -89,7 +87,7 @@ export function Dashboard() {
                   dataKey="count"
                   nameKey="technology"
                 >
-                  {stats.techStats.map((entry: any, index: number) => (
+                  {(stats.projectsByTech || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -100,13 +98,13 @@ export function Dashboard() {
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-3 gap-4 mt-6">
-            {stats.techStats.map((tech: any, i: number) => (
+            {(stats.projectsByTech || []).map((tech: any, i: number) => (
               <div key={tech.technology} className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
                   <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">{tech.technology}</span>
                 </div>
-                <p className="text-lg font-bold">{Math.round((tech.count / stats.totalProjects) * 100)}%</p>
+                <p className="text-lg font-bold">{stats.totalProjects > 0 ? Math.round((tech.count / stats.totalProjects) * 100) : 0}%</p>
               </div>
             ))}
           </div>
@@ -128,10 +126,10 @@ export function Dashboard() {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.serverDistribution}>
+              <BarChart data={stats.projectsByServer || []}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis 
-                  dataKey="server_name" 
+                  dataKey="serverName" 
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 600 }}
@@ -142,7 +140,7 @@ export function Dashboard() {
                   cursor={{ fill: '#F8F9FB' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                 />
-                <Bar dataKey="project_count" fill="#2D31A6" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="#2D31A6" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -166,8 +164,8 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
-              {stats.recentLogs.map((log: any) => (
-                <tr key={log.id} className="hover:bg-[#F8F9FB] transition-colors group">
+              {(stats.recentLogs || []).map((log: any) => (
+                <tr key={log._id} className="hover:bg-[#F8F9FB] transition-colors group">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
@@ -182,13 +180,13 @@ export function Dashboard() {
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                        {log.user_name.charAt(0)}
+                        {log.user?.name?.charAt(0) || 'U'}
                       </div>
-                      <span className="text-sm font-medium text-[#64748B]">{log.user_name}</span>
+                      <span className="text-sm font-medium text-[#64748B]">{log.user?.name || 'Unknown'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5 text-sm text-[#64748B]">
-                    {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(log.createdAt || log.timestamp), { addSuffix: true })}
                   </td>
                   <td className="px-8 py-5">
                     <span className="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">

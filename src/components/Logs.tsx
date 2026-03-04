@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../lib/api";
+import { logService } from "../services/logService";
 import { FileText, Search, Filter, Clock, User, Activity } from "lucide-react";
 import { format } from "date-fns";
 
@@ -8,8 +8,9 @@ export function Logs() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.logs.list()
-      .then(setLogs)
+    logService.getAll()
+      .then(res => setLogs(res.data || []))
+      .catch(err => console.error('Failed to fetch logs:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -48,7 +49,7 @@ export function Logs() {
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
               {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#F8F9FB] transition-colors">
+                <tr key={log._id} className="hover:bg-[#F8F9FB] transition-colors">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-[#2D31A6]"></div>
@@ -61,14 +62,14 @@ export function Logs() {
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
-                        {log.user_name.charAt(0)}
+                        {log.user?.name?.charAt(0) || 'U'}
                       </div>
-                      <span className="text-sm font-medium text-[#64748B]">{log.user_name}</span>
+                      <span className="text-sm font-medium text-[#64748B]">{log.user?.name || 'Unknown'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5 text-sm text-[#64748B] flex items-center gap-2">
                     <Clock size={14} className="text-[#94A3B8]" />
-                    {format(new Date(log.timestamp), "MMM d, yyyy HH:mm:ss")}
+                    {format(new Date(log.createdAt || log.timestamp), "MMM d, yyyy HH:mm:ss")}
                   </td>
                 </tr>
               ))}

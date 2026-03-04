@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../lib/api";
+import { serverService } from "../services/serverService";
 import { Server as ServerIcon, MoreVertical, Trash2, Edit2, Plus, HardDrive, Monitor, Shield, Search, Filter, Download, Globe, Briefcase } from "lucide-react";
 import { motion } from "motion/react";
 import { Modal } from "./Modal";
@@ -8,19 +8,28 @@ export function Servers() {
   const [servers, setServers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    ip_address: "",
-    provider: "AWS",
-    os_type: "Ubuntu 22.04",
-    description: ""
+    ipAddress: "",
+    type: "",
+    username: "",
+    password: "",
+    description: "",
+    status: "active"
   });
 
-  const fetchServers = () => {
+  const fetchServers = async () => {
     setLoading(true);
-    api.servers.list()
-      .then(setServers)
-      .finally(() => setLoading(false));
+    try {
+      const response = await serverService.getAll();
+      setServers(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch servers:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -30,19 +39,45 @@ export function Servers() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.servers.create(formData);
+      if (editingId) {
+        await serverService.update(editingId, formData);
+      } else {
+        await serverService.create(formData);
+      }
       setIsModalOpen(false);
-      setFormData({ name: "", ip_address: "", provider: "AWS", os_type: "Ubuntu 22.04", description: "" });
+      setEditingId(null);
+      setShowPassword(false);
+      setFormData({ name: "", ipAddress: "", type: "", username: "", password: "", description: "", status: "active" });
       fetchServers();
     } catch (err) {
-      alert("Failed to create server");
+      alert(editingId ? "Failed to update server" : "Failed to create server");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this server? All associated projects will be removed.")) {
+  const handleEdit = async (server: any) => {
+    try {
+      const response = await serverService.getById(server._id);
+      const serverData = response.data;
+      setEditingId(server._id);
+      setFormData({
+        name: serverData.name,
+        ipAddress: serverData.ipAddress,
+        type: serverData.type || "",
+        username: serverData.username || "",
+        password: serverData.password || "",
+        description: serverData.description || "",
+        status: serverData.status
+      });
+      setIsModalOpen(true);
+    } catch (error) {
+      alert("Failed to fetch server details");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to delete this server?")) {
       try {
-        await api.servers.delete(id);
+        await serverService.delete(id);
         fetchServers();
       } catch (err) {
         alert("Failed to delete server");
@@ -92,7 +127,7 @@ export function Servers() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {servers.map((server, i) => (
           <motion.div 
-            key={server.id}
+            key={server._id || i}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.05 }}
@@ -104,11 +139,11 @@ export function Servers() {
                   <ServerIcon size={28} />
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 text-[#94A3B8] hover:text-[#2D31A6] hover:bg-[#F1F5FF] rounded-lg transition-all">
+                  <button onClick={() => handleEdit(server)} className="p-2 text-[#94A3B8] hover:text-[#2D31A6] hover:bg-[#F1F5FF] rounded-lg transition-all">
                     <Edit2 size={16} />
                   </button>
                   <button 
-                    onClick={() => handleDelete(server.id)}
+                    onClick={() => handleDelete(server._id)}
                     className="p-2 text-[#94A3B8] hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                   >
                     <Trash2 size={16} />
@@ -120,29 +155,25 @@ export function Servers() {
                 <h3 className="text-xl font-bold text-[#1A1C1E] mb-1">{server.name}</h3>
                 <p className="text-sm font-medium text-[#64748B] flex items-center gap-2">
                   <Globe size={14} className="text-[#94A3B8]" />
-                  {server.ip_address}
+                  {server.ipAddress}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="bg-[#F8F9FB] p-3 rounded-2xl border border-[#F1F5F9]">
-                  <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-1">Provider</p>
-                  <p className="text-sm font-bold text-[#1A1C1E]">{server.provider}</p>
+                  <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-1">Type</p>
+                  <p className="text-sm font-bold text-[#1A1C1E]">{server.type || 'N/A'}</p>
                 </div>
                 <div className="bg-[#F8F9FB] p-3 rounded-2xl border border-[#F1F5F9]">
-                  <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-1">OS Type</p>
-                  <p className="text-sm font-bold text-[#1A1C1E]">{server.os_type}</p>
+                  <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-1">Status</p>
+                  <p className="text-sm font-bold text-[#1A1C1E] capitalize">{server.status}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between pt-6 border-t border-[#F1F5F9]">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Online</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[#64748B]">
-                  <Briefcase size={14} />
-                  <span className="text-sm font-bold">{server.project_count} Projects</span>
+                  <div className={`w-2 h-2 rounded-full ${server.status === 'active' ? 'bg-emerald-500 animate-pulse' : server.status === 'maintenance' ? 'bg-yellow-500' : 'bg-gray-400'}`}></div>
+                  <span className={`text-xs font-bold uppercase tracking-wider ${server.status === 'active' ? 'text-emerald-600' : server.status === 'maintenance' ? 'text-yellow-600' : 'text-gray-600'}`}>{server.status}</span>
                 </div>
               </div>
             </div>
@@ -150,7 +181,7 @@ export function Servers() {
         ))}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add New Server">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingId(null); setShowPassword(false); }} title={editingId ? "Edit Server" : "Add New Server"}>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
             <div className="col-span-2">
@@ -169,39 +200,68 @@ export function Servers() {
               <input 
                 type="text" 
                 required
-                value={formData.ip_address}
-                onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+                value={formData.ipAddress}
+                onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
                 className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
                 placeholder="192.168.1.1"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Provider</label>
+              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Type</label>
+              <input 
+                type="text" 
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                placeholder="AWS, Azure, etc."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Status</label>
               <select 
-                value={formData.provider}
-                onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
               >
-                <option>AWS</option>
-                <option>DigitalOcean</option>
-                <option>Google Cloud</option>
-                <option>Azure</option>
-                <option>Local</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="maintenance">Maintenance</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">OS Type</label>
-              <select 
-                value={formData.os_type}
-                onChange={(e) => setFormData({ ...formData, os_type: e.target.value })}
+              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Username</label>
+              <input 
+                type="text" 
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-              >
-                <option>Ubuntu 22.04</option>
-                <option>Ubuntu 20.04</option>
-                <option>CentOS 7</option>
-                <option>Debian 11</option>
-                <option>Windows Server</option>
-              </select>
+                placeholder="root, admin, etc."
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Password</label>
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="Enter server password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           <div>
@@ -226,7 +286,7 @@ export function Servers() {
               type="submit"
               className="flex-1 bg-[#2D31A6] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#1E217A] transition-all shadow-lg shadow-indigo-100"
             >
-              Provision Server
+              {editingId ? 'Update Server' : 'Create Server'}
             </button>
           </div>
         </form>

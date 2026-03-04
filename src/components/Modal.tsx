@@ -31,7 +31,7 @@ export function Modal({ isOpen, onClose, title, children }: { isOpen: boolean, o
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-[32px] shadow-2xl overflow-hidden border border-[#E2E8F0] flex flex-col"
+            className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-[32px] shadow-2xl overflow-hidden border border-[#E2E8F0] flex flex-col"
           >
             <div className="p-8 border-b border-[#F1F5F9] flex items-center justify-between bg-[#F8F9FB] flex-shrink-0">
               <h3 className="text-xl font-bold text-[#1A1C1E]">{title}</h3>
