@@ -14,7 +14,7 @@ export function Login({ onLoginSuccess }: { onLoginSuccess: (user: any) => void 
     setLoading(true);
     setError("");
     try {
-      const { token, user } = await api.auth.login({ email, password });
+      const { token, user } = await api.auth.login(email, password);
       localStorage.setItem("token", token);
       onLoginSuccess(user);
     } catch (err: any) {
