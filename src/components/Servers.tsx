@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { serverService } from "../services/serverService";
-import { Server as ServerIcon, MoreVertical, Trash2, Edit2, Plus, HardDrive, Monitor, Shield, Search, Filter, Download, Globe, Briefcase } from "lucide-react";
+import { Server as ServerIcon, MoreVertical, Trash2, Edit2, Plus, HardDrive, Monitor, Shield, Search, Filter, Download, Globe, Briefcase, Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
 import { Modal } from "./Modal";
 
@@ -10,6 +10,8 @@ export function Servers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showModalFields, setShowModalFields] = useState(false);
+  const [visibleCredentials, setVisibleCredentials] = useState<{[key: string]: {username: string, password: string}}>({});
   const [formData, setFormData] = useState({
     name: "",
     ipAddress: "",
@@ -85,6 +87,34 @@ export function Servers() {
     }
   };
 
+  const toggleCredentials = async (serverId: string) => {
+    if (visibleCredentials[serverId]) {
+      setVisibleCredentials(prev => {
+        const updated = {...prev};
+        delete updated[serverId];
+        return updated;
+      });
+    } else {
+      try {
+        const response = await serverService.decryptCredentials(serverId);
+        setVisibleCredentials(prev => ({
+          ...prev,
+          [serverId]: response.data
+        }));
+      } catch (error) {
+        alert("Failed to decrypt credentials");
+      }
+    }
+  };
+
+  const maskIP = (ip: string) => {
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      return `xxx.xxx.xxx.${parts[3]}`;
+    }
+    return ip.slice(0, 3) + 'x'.repeat(Math.max(0, ip.length - 6)) + ip.slice(-3);
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -153,10 +183,15 @@ export function Servers() {
 
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-[#1A1C1E] mb-1">{server.name}</h3>
-                <p className="text-sm font-medium text-[#64748B] flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Globe size={14} className="text-[#94A3B8]" />
-                  {server.ipAddress}
-                </p>
+                  <p className="text-sm font-medium text-[#64748B] font-mono">
+                    {visibleCredentials[server._id] ? server.ipAddress : maskIP(server.ipAddress)}
+                  </p>
+                  <button onClick={() => toggleCredentials(server._id)} className="text-[#94A3B8] hover:text-[#2D31A6] transition-colors">
+                    {visibleCredentials[server._id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-8">
@@ -167,6 +202,31 @@ export function Servers() {
                 <div className="bg-[#F8F9FB] p-3 rounded-2xl border border-[#F1F5F9]">
                   <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider mb-1">Status</p>
                   <p className="text-sm font-bold text-[#1A1C1E] capitalize">{server.status}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <div className="bg-[#F8F9FB] p-3 rounded-2xl border border-[#F1F5F9]">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">Username</p>
+                    <button onClick={() => toggleCredentials(server._id)} className="text-[#94A3B8] hover:text-[#2D31A6] transition-colors">
+                      {visibleCredentials[server._id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  <p className="text-sm font-mono text-[#1A1C1E] break-all">
+                    {visibleCredentials[server._id] ? visibleCredentials[server._id].username : '••••••••'}
+                  </p>
+                </div>
+                <div className="bg-[#F8F9FB] p-3 rounded-2xl border border-[#F1F5F9]">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider">Password</p>
+                    <button onClick={() => toggleCredentials(server._id)} className="text-[#94A3B8] hover:text-[#2D31A6] transition-colors">
+                      {visibleCredentials[server._id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  <p className="text-sm font-mono text-[#1A1C1E] break-all">
+                    {visibleCredentials[server._id] ? visibleCredentials[server._id].password : '••••••••'}
+                  </p>
                 </div>
               </div>
 
@@ -230,32 +290,47 @@ export function Servers() {
             </div>
             <div>
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Username</label>
-              <input 
-                type="text" 
-                required
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                placeholder="root, admin, etc."
-              />
+              <div className="relative">
+                <input 
+                  type="text"
+                  required
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="root, admin, etc."
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">Password</label>
               <div className="relative">
                 <input 
-                  type={showPassword ? "text" : "password"}
+                  type="text"
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
                   placeholder="Enter server password"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowModalFields(!showModalFields)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
                 >
-                  {showPassword ? (
+                  {showModalFields ? (
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                   ) : (
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>

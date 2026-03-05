@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Edit2,
   Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Modal } from "./Modal";
@@ -27,12 +29,14 @@ export function Projects() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [visibleData, setVisibleData] = useState<{[key: string]: any}>({});
+  const [showModalFields, setShowModalFields] = useState(false);
   const [formData, setFormData] = useState({
     server: "",
     name: "",
     domain: "",
     technology: "Node.js",
-    port: 0,
+    port: "",
     status: "running",
     description: "",
     projectPath: "",
@@ -85,7 +89,7 @@ export function Projects() {
         name: "",
         domain: "",
         technology: "Node.js",
-        port: 3000,
+        port: "",
         status: "running",
         description: "",
         projectPath: "",
@@ -107,26 +111,32 @@ export function Projects() {
   };
 
   const handleEdit = async (project: any) => {
-    setEditingId(project._id);
-    setFormData({
-      server: project.server?._id || "",
-      name: project.name,
-      domain: project.domain.replace(/^https:\/\//, ""),
-      technology: project.technology || "Node.js",
-      port: project.port || 3000,
-      status: project.status,
-      description: project.description || "",
-      projectPath: project.projectPath || "",
-      nginxConfig: project.nginxConfig || "",
-      nginxContent: project.nginxContent || "",
-      nginxDescription: project.nginxDescription || "",
-      envFile: project.envFile || "",
-      envContent: project.envContent || "",
-      envDescription: project.envDescription || "",
-      pm2Name: project.pm2Name || "",
-      pm2Description: project.pm2Description || "",
-    });
-    setIsModalOpen(true);
+    try {
+      const response = await projectService.getById(project._id);
+      const projectData = response.data;
+      setEditingId(project._id);
+      setFormData({
+        server: projectData.server?._id || "",
+        name: projectData.name,
+        domain: projectData.domain.replace(/^https:\/\//, ""),
+        technology: projectData.technology || "Node.js",
+        port: projectData.port || "",
+        status: projectData.status,
+        description: projectData.description || "",
+        projectPath: projectData.projectPath || "",
+        nginxConfig: projectData.nginxConfig || "",
+        nginxContent: projectData.nginxContent || "",
+        nginxDescription: projectData.nginxDescription || "",
+        envFile: projectData.envFile || "",
+        envContent: projectData.envContent || "",
+        envDescription: projectData.envDescription || "",
+        pm2Name: projectData.pm2Name || "",
+        pm2Description: projectData.pm2Description || "",
+      });
+      setIsModalOpen(true);
+    } catch (error) {
+      alert("Failed to fetch project details");
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -136,6 +146,26 @@ export function Projects() {
         fetchData();
       } catch (err) {
         alert("Failed to delete project");
+      }
+    }
+  };
+
+  const toggleProjectData = async (projectId: string) => {
+    if (visibleData[projectId]) {
+      setVisibleData(prev => {
+        const updated = {...prev};
+        delete updated[projectId];
+        return updated;
+      });
+    } else {
+      try {
+        const response = await projectService.decryptProjectData(projectId);
+        setVisibleData(prev => ({
+          ...prev,
+          [projectId]: response.data
+        }));
+      } catch (error) {
+        alert("Failed to decrypt project data");
       }
     }
   };
@@ -264,9 +294,14 @@ export function Projects() {
                       <div className="bg-[#F1F5FF] text-[#2D31A6] text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
                         {project.technology}
                       </div>
-                      <span className="text-xs text-[#94A3B8] font-medium">
-                        Port: {project.port}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-[#94A3B8] font-medium font-mono">
+                          {visibleData[project._id] ? visibleData[project._id].port : '••••'}
+                        </span>
+                        <button onClick={() => toggleProjectData(project._id)} className="text-[#94A3B8] hover:text-[#2D31A6] transition-colors">
+                          {visibleData[project._id] ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      </div>
                     </div>
                   </td>
                   <td className="px-8 py-5">
@@ -384,14 +419,25 @@ export function Projects() {
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 Port Number
               </label>
-              <input
-                type="number"
-                value={formData.port}
-                onChange={(e) =>
-                  setFormData({ ...formData, port: parseInt(e.target.value) })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.port}
+                  onChange={(e) =>
+                    setFormData({ ...formData, port: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="3000"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
@@ -413,15 +459,25 @@ export function Projects() {
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 Project Path
               </label>
-              <input
-                type="text"
-                value={formData.projectPath}
-                onChange={(e) =>
-                  setFormData({ ...formData, projectPath: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                placeholder="/var/www/project"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.projectPath}
+                  onChange={(e) =>
+                    setFormData({ ...formData, projectPath: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="/var/www/project"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {/* Nginx Section */}
@@ -434,43 +490,73 @@ export function Projects() {
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 Nginx Config Path
               </label>
-              <input
-                type="text"
-                value={formData.nginxConfig}
-                onChange={(e) =>
-                  setFormData({ ...formData, nginxConfig: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                placeholder="/etc/nginx/sites-available/example.com"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.nginxConfig}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nginxConfig: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="/etc/nginx/sites-available/example.com"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 Nginx File Content
               </label>
-              <textarea
-                value={formData.nginxContent}
-                onChange={(e) =>
-                  setFormData({ ...formData, nginxContent: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                rows={4}
-                placeholder="server { ... }"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.nginxContent}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nginxContent: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  rows={4}
+                  placeholder="server { ... }"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-4 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 Nginx Description
               </label>
-              <textarea
-                value={formData.nginxDescription}
-                onChange={(e) =>
-                  setFormData({ ...formData, nginxDescription: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                rows={2}
-                placeholder="Notes about nginx configuration"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.nginxDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nginxDescription: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  rows={2}
+                  placeholder="Notes about nginx configuration"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-3 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {/* ENV Section */}
@@ -483,43 +569,73 @@ export function Projects() {
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 ENV File Path
               </label>
-              <input
-                type="text"
-                value={formData.envFile}
-                onChange={(e) =>
-                  setFormData({ ...formData, envFile: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                placeholder="/var/www/project/.env"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.envFile}
+                  onChange={(e) =>
+                    setFormData({ ...formData, envFile: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="/var/www/project/.env"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 ENV File Content
               </label>
-              <textarea
-                value={formData.envContent}
-                onChange={(e) =>
-                  setFormData({ ...formData, envContent: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                rows={4}
-                placeholder="PORT=3000\nDB_HOST=localhost"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.envContent}
+                  onChange={(e) =>
+                    setFormData({ ...formData, envContent: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  rows={4}
+                  placeholder="PORT=3000\nDB_HOST=localhost"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-4 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 ENV Description
               </label>
-              <textarea
-                value={formData.envDescription}
-                onChange={(e) =>
-                  setFormData({ ...formData, envDescription: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                rows={2}
-                placeholder="Notes about environment variables"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.envDescription}
+                  onChange={(e) =>
+                    setFormData({ ...formData, envDescription: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  rows={2}
+                  placeholder="Notes about environment variables"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-3 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {/* PM2 Section */}
@@ -532,29 +648,49 @@ export function Projects() {
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 PM2 Name
               </label>
-              <input
-                type="text"
-                value={formData.pm2Name}
-                onChange={(e) =>
-                  setFormData({ ...formData, pm2Name: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                placeholder="e.g. customer-api"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.pm2Name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, pm2Name: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  placeholder="e.g. customer-api"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-bold text-[#1A1C1E] mb-2">
                 PM2 Description
               </label>
-              <textarea
-                value={formData.pm2Description}
-                onChange={(e) =>
-                  setFormData({ ...formData, pm2Description: e.target.value })
-                }
-                className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
-                rows={2}
-                placeholder="Notes about PM2 process"
-              />
+              <div className="relative">
+                <textarea
+                  value={formData.pm2Description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, pm2Description: e.target.value })
+                  }
+                  className="w-full bg-[#F8F9FB] border border-[#E2E8F0] rounded-xl py-3 px-4 pr-12 text-sm focus:ring-2 focus:ring-[#2D31A6]/20 outline-none"
+                  rows={2}
+                  placeholder="Notes about PM2 process"
+                  style={{ filter: showModalFields ? 'none' : 'blur(4px)' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowModalFields(!showModalFields)}
+                  className="absolute right-4 top-3 text-[#94A3B8] hover:text-[#2D31A6] transition-colors"
+                >
+                  {showModalFields ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex gap-4 pt-4 sticky bottom-0 bg-white">

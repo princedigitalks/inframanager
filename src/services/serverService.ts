@@ -11,6 +11,11 @@ export const serverService = {
     return data;
   },
 
+  decryptCredentials: async (id: string) => {
+    const { data } = await api.get(`/server/${id}/decrypt`);
+    return data;
+  },
+
   create: async (serverData: any) => {
     const { data } = await api.post('/server', serverData);
     return data;

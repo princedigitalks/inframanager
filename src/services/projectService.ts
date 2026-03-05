@@ -11,6 +11,11 @@ export const projectService = {
     return data;
   },
 
+  decryptProjectData: async (id: string) => {
+    const { data } = await api.get(`/project/${id}/decrypt`);
+    return data;
+  },
+
   create: async (projectData: any) => {
     const { data } = await api.post('/project', projectData);
     return data;
